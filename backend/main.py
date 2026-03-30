@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
 import traceback
 import threading
+import glob
+import os
 
 from config import TASK_LABELS, TASKS
 from models import get_baseline, get_groq_model, get_hybrid, model_status
@@ -58,15 +60,14 @@ def _auto_train():
     try:
         from config import MODEL_DIR, TASKS
         from training.train import train_all_models
-        missing = any(
-            not (MODEL_DIR / f"{kind}_{task}.pkl").exists()
-            for task in TASKS
-            for kind in ["baseline", "hybrid"]
-        )
-        if missing:
-            print("Auto-training: no saved models found, starting training...")
-            train_all_models()
-            print("Auto-training complete.")
+
+        for pkl in glob.glob(str(MODEL_DIR / "*.pkl")):
+            os.remove(pkl)
+            print(f"Removed stale model: {pkl}")
+
+        print("Auto-training: starting fresh training of all models...")
+        train_all_models()
+        print("Auto-training complete.")
     except Exception:
         traceback.print_exc()
 
@@ -96,7 +97,7 @@ async def predict(req: PredictRequest):
         if req.model_type == "baseline":
             model = get_baseline(task)
             if not model.is_trained:
-                raise HTTPException(status_code=400, detail="Baseline model not trained yet. Please wait or POST /train first.")
+                raise HTTPException(status_code=400, detail="Baseline model not trained yet. Please wait ~60 seconds after deploy.")
             pred, proba = model.predict(req.note)
             top_features = model.get_top_features(req.note, n=15)
             explanation = build_explanation_payload(req.note, "baseline", top_features=top_features)
@@ -113,7 +114,7 @@ async def predict(req: PredictRequest):
         elif req.model_type == "hybrid":
             model = get_hybrid(task)
             if not model.is_trained:
-                raise HTTPException(status_code=400, detail="Hybrid model not trained yet. Please wait or POST /train first.")
+                raise HTTPException(status_code=400, detail="Hybrid model not trained yet. Please wait ~60 seconds after deploy.")
             pred, proba = model.predict(req.note, tabular=req.tabular)
             top_features = model.get_feature_importances(req.note)
             explanation = build_explanation_payload(req.note, "hybrid", top_features=top_features)
