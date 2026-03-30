@@ -56,18 +56,44 @@ class PredictionResponse(BaseModel):
     metadata: Optional[dict] = None
 
 
+def _check_mismatch() -> bool:
+    """Return True if baseline and hybrid pkl counts differ — sign of mismatch."""
+    from config import MODEL_DIR
+    baselines = glob.glob(str(MODEL_DIR / "baseline_*.pkl"))
+    hybrids = glob.glob(str(MODEL_DIR / "hybrid_*.pkl"))
+    return len(baselines) != len(hybrids) or len(baselines) == 0
+
+
 def _auto_train():
     try:
+        import models as model_registry
         from config import MODEL_DIR, TASKS
         from training.train import train_all_models
 
+        all_exist = all(
+            (MODEL_DIR / f"{kind}_{task}.pkl").exists()
+            for task in TASKS
+            for kind in ["baseline", "hybrid"]
+        )
+
+        if all_exist and not _check_mismatch():
+            print("All models present and consistent — skipping auto-train.")
+            return
+
+        print("Auto-training: cleaning stale models and retraining from scratch...")
         for pkl in glob.glob(str(MODEL_DIR / "*.pkl")):
             os.remove(pkl)
-            print(f"Removed stale model: {pkl}")
+            print(f"  Removed: {pkl}")
 
-        print("Auto-training: starting fresh training of all models...")
+        # Clear the in-memory model registry so stale objects are not reused
+        model_registry._registry.clear()
+
         train_all_models()
-        print("Auto-training complete.")
+
+        # Clear registry again so next predict call loads the fresh models
+        model_registry._registry.clear()
+        print("Auto-training complete. Registry cleared.")
+
     except Exception:
         traceback.print_exc()
 
@@ -97,7 +123,7 @@ async def predict(req: PredictRequest):
         if req.model_type == "baseline":
             model = get_baseline(task)
             if not model.is_trained:
-                raise HTTPException(status_code=400, detail="Baseline model not trained yet. Please wait ~60 seconds after deploy.")
+                raise HTTPException(status_code=400, detail="Baseline model is still training. Please wait ~60 seconds and try again.")
             pred, proba = model.predict(req.note)
             top_features = model.get_top_features(req.note, n=15)
             explanation = build_explanation_payload(req.note, "baseline", top_features=top_features)
@@ -114,7 +140,7 @@ async def predict(req: PredictRequest):
         elif req.model_type == "hybrid":
             model = get_hybrid(task)
             if not model.is_trained:
-                raise HTTPException(status_code=400, detail="Hybrid model not trained yet. Please wait ~60 seconds after deploy.")
+                raise HTTPException(status_code=400, detail="Hybrid model is still training. Please wait ~60 seconds and try again.")
             pred, proba = model.predict(req.note, tabular=req.tabular)
             top_features = model.get_feature_importances(req.note)
             explanation = build_explanation_payload(req.note, "hybrid", top_features=top_features)
@@ -181,10 +207,12 @@ async def explain(req: ExplainRequest):
 @app.post("/train")
 async def train_models(req: TrainRequest, background_tasks: BackgroundTasks):
     from training.train import train_all_models
+    import models as model_registry
 
     def _run():
         try:
             train_all_models(tasks=req.tasks, n_samples=req.n_samples)
+            model_registry._registry.clear()
         except Exception:
             traceback.print_exc()
 
