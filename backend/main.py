@@ -9,6 +9,26 @@ from config import TASK_LABELS, TASKS
 from models import get_baseline, get_groq_model, get_hybrid, model_status
 from utils.explainability import build_explanation_payload, extract_tfidf_highlights
 
+@app.on_event("startup")
+async def startup_train():
+    import os
+    from pathlib import Path
+    from config import MODEL_DIR, TASKS
+    
+    missing = any(
+        not (MODEL_DIR / f"{kind}_{task}.pkl").exists()
+        for task in TASKS
+        for kind in ["baseline", "hybrid"]
+    )
+    
+    if missing:
+        print("No trained models found — running auto-training...")
+        from training.train import train_all_models
+        import threading
+        thread = threading.Thread(target=train_all_models, daemon=True)
+        thread.start()
+        print("Auto-training started in background thread.")
+
 app = FastAPI(
     title="Clinical NLP API",
     description="Readmission, length of stay, and specialty prediction from clinical notes.",
