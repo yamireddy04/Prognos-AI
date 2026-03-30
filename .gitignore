@@ -1,0 +1,11 @@
+backend/.venv/
+backend/saved_models/
+backend/data/clinical_notes.csv
+backend/__pycache__/
+backend/**/__pycache__/
+**/*.pyc
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+.env
+.DS_Store
