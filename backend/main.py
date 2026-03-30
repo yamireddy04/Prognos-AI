@@ -3,31 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
 import traceback
-import numpy as np
+import threading
 
 from config import TASK_LABELS, TASKS
 from models import get_baseline, get_groq_model, get_hybrid, model_status
 from utils.explainability import build_explanation_payload, extract_tfidf_highlights
-
-@app.on_event("startup")
-async def startup_train():
-    import os
-    from pathlib import Path
-    from config import MODEL_DIR, TASKS
-    
-    missing = any(
-        not (MODEL_DIR / f"{kind}_{task}.pkl").exists()
-        for task in TASKS
-        for kind in ["baseline", "hybrid"]
-    )
-    
-    if missing:
-        print("No trained models found — running auto-training...")
-        from training.train import train_all_models
-        import threading
-        thread = threading.Thread(target=train_all_models, daemon=True)
-        thread.start()
-        print("Auto-training started in background thread.")
 
 app = FastAPI(
     title="Clinical NLP API",
@@ -74,6 +54,29 @@ class PredictionResponse(BaseModel):
     metadata: Optional[dict] = None
 
 
+def _auto_train():
+    try:
+        from config import MODEL_DIR, TASKS
+        from training.train import train_all_models
+        missing = any(
+            not (MODEL_DIR / f"{kind}_{task}.pkl").exists()
+            for task in TASKS
+            for kind in ["baseline", "hybrid"]
+        )
+        if missing:
+            print("Auto-training: no saved models found, starting training...")
+            train_all_models()
+            print("Auto-training complete.")
+    except Exception:
+        traceback.print_exc()
+
+
+@app.on_event("startup")
+async def startup_event():
+    thread = threading.Thread(target=_auto_train, daemon=True)
+    thread.start()
+
+
 @app.get("/")
 def root():
     return {"status": "ok", "service": "Clinical NLP API", "version": "1.0.0"}
@@ -93,7 +96,7 @@ async def predict(req: PredictRequest):
         if req.model_type == "baseline":
             model = get_baseline(task)
             if not model.is_trained:
-                raise HTTPException(status_code=400, detail="Baseline model not trained. POST /train first.")
+                raise HTTPException(status_code=400, detail="Baseline model not trained yet. Please wait or POST /train first.")
             pred, proba = model.predict(req.note)
             top_features = model.get_top_features(req.note, n=15)
             explanation = build_explanation_payload(req.note, "baseline", top_features=top_features)
@@ -110,7 +113,7 @@ async def predict(req: PredictRequest):
         elif req.model_type == "hybrid":
             model = get_hybrid(task)
             if not model.is_trained:
-                raise HTTPException(status_code=400, detail="Hybrid model not trained. POST /train first.")
+                raise HTTPException(status_code=400, detail="Hybrid model not trained yet. Please wait or POST /train first.")
             pred, proba = model.predict(req.note, tabular=req.tabular)
             top_features = model.get_feature_importances(req.note)
             explanation = build_explanation_payload(req.note, "hybrid", top_features=top_features)
