@@ -10,7 +10,7 @@ An end-to-end clinical NLP system that analyzes free-text hospital discharge sum
 
 Built with **FastAPI** for the backend, **Next.js + Tailwind CSS** for the frontend, and **scikit-learn + Groq API** for machine learning inference.
 
-🌐 **Live Demo**: `https://prognos-ai-five.vercel.app/`
+🌐 **Live Demo**: https://prognos-ai-five.vercel.app/
 
 ---
 
