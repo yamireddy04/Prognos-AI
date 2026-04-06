@@ -71,7 +71,6 @@ export default function Home() {
                   background: 'linear-gradient(135deg,#eff4ff 0%,#f0fdf4 100%)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
                 }}>
-                  {/* ↓ swap this block for your <img> tag once you have an image */}
                   <img src="/clinical.jpeg"
                   alt="Clinical NLP Dashboard"
                   style={{

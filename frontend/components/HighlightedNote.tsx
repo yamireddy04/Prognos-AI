@@ -1,4 +1,3 @@
-// HighlightedNote.tsx
 import { TokenSpan } from '../utils/api';
 
 interface Props {
