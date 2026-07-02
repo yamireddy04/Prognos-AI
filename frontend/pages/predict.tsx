@@ -25,6 +25,7 @@ export default function PredictPage() {
   const router = useRouter();
   const [task, setTask] = useState<Task>('readmission');
   const [modelType, setModelType] = useState<ModelType>('groq');
+  const [explainMethod, setExplainMethod] = useState<'tfidf' | 'shap'>('tfidf');
   const [note, setNote] = useState('');
   const [tabular, setTabular] = useState<TabularFeatures>({});
   const [showTabular, setShowTabular] = useState(false);
@@ -65,6 +66,7 @@ export default function PredictPage() {
         task,
         model_type: modelType,
         tabular: Object.keys(tabular).length ? tabular : undefined,
+        explain_method: explainMethod,
       });
       setResult(res);
     } catch (e: any) {
@@ -72,7 +74,7 @@ export default function PredictPage() {
     } finally {
       setLoading(false);
     }
-  }, [note, task, modelType, tabular]);
+  }, [note, task, modelType, tabular, explainMethod]);
 
   return (
     <>
@@ -161,6 +163,29 @@ export default function PredictPage() {
                     <p style={{ color: '#92400e', fontSize: 12 }}>
                       This model requires training. Go to the <button onClick={() => router.push('/train')} style={{ color: '#d97706', fontWeight: 600, textDecoration: 'underline' }}>Train page</button> first.
                     </p>
+                  </div>
+                )}
+                {(modelType === 'baseline' || modelType === 'hybrid') && (
+                  <div className="mt-3">
+                    <p style={{ color: '#6b7280', fontSize: 12, marginBottom: 8 }}>Explanation method</p>
+                    <div className="flex rounded-xl overflow-hidden" style={{ border: '1.5px solid #e2e6ec' }}>
+                      {([
+                        { id: 'tfidf', label: 'TF-IDF weights' },
+                        { id: 'shap', label: 'SHAP values' },
+                      ] as { id: 'tfidf' | 'shap'; label: string }[]).map(opt => (
+                        <button
+                          key={opt.id}
+                          onClick={() => { setExplainMethod(opt.id); setResult(null); }}
+                          className="flex-1 py-2 text-xs font-semibold transition-all duration-150"
+                          style={{
+                            background: explainMethod === opt.id ? '#1a56db' : 'white',
+                            color: explainMethod === opt.id ? 'white' : '#6b7280',
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

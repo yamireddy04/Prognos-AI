@@ -1,5 +1,7 @@
 import numpy as np
 import joblib
+import shap
+import scipy.sparse as sp
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
@@ -42,7 +44,7 @@ class HybridModel:
 
         self.clf = LogisticRegression(
             C=0.8, max_iter=1000, class_weight="balanced",
-            solver="lbfgs", multi_class="auto",
+            solver="lbfgs",
         )
         self.clf.fit(X_train, y_train)
 
@@ -69,16 +71,29 @@ class HybridModel:
         proba = self.clf.predict_proba(X)[0].tolist()
         return pred, proba
 
-    def get_feature_importances(self, text: str, n: int = 12) -> List[Tuple[str, float]]:
-        if self.clf is None:
+    def get_feature_importances(self, text: str, n: int = 12, tabular: Optional[dict] = None) -> List[Tuple[str, float]]:
+        if self.clf is None or self.tfidf is None or self.scaler is None:
             self.load()
+        if self.scaler is None or self.tfidf is None:
+            raise FileNotFoundError("No saved hybrid model. Run /train first.")
+
         processed = preprocess_batch([text], lemmatize=True)
         feature_names = list(self.tfidf.get_feature_names_out())
         X_text = self.tfidf.transform(processed)
-        pred_class = int(self.clf.predict(X_text)[0])
+
+        if tabular is not None:
+            X_tab = build_single_tabular(tabular, scaler=self.scaler)
+        else:
+            X_tab = np.zeros((1, self.scaler.n_features_in_))
+            X_tab = self.scaler.transform(X_tab)
+
+        X = hstack([X_text, X_tab])
+        pred_class = int(self.clf.predict(X)[0])
 
         if self.clf.coef_.ndim == 1:
             coefs = self.clf.coef_
+        elif self.clf.coef_.shape[0] == 1:
+            coefs = self.clf.coef_[0][:len(feature_names)]
         else:
             coefs = self.clf.coef_[pred_class][:len(feature_names)]
 
@@ -86,6 +101,37 @@ class HybridModel:
         scores = tfidf_vals * coefs[:len(tfidf_vals)]
         top_idx = np.argsort(np.abs(scores))[-n:][::-1]
         return [(feature_names[i], float(scores[i])) for i in top_idx if tfidf_vals[i] > 0]
+
+    def get_shap_values(self, text: str, tabular: Optional[dict] = None, n: int = 12) -> List[Tuple[str, float]]:
+        if self.clf is None or self.tfidf is None or self.scaler is None:
+            self.load()
+        if self.scaler is None or self.tfidf is None:
+            raise FileNotFoundError("No saved hybrid model. Run /train first.")
+
+        processed = preprocess_batch([text], lemmatize=True)
+        feature_names = np.array(self.tfidf.get_feature_names_out())
+        X_text = self.tfidf.transform(processed).astype(np.float64)
+
+        if tabular is not None:
+            X_tab = build_single_tabular(tabular, scaler=self.scaler)
+        else:
+            X_tab = np.zeros((1, self.scaler.n_features_in_))
+            X_tab = self.scaler.transform(X_tab)
+
+        X = hstack([X_text, X_tab])
+        pred_class = int(self.clf.predict(X)[0])
+
+        n_text_features = X_text.shape[1]
+        n_coef_rows = self.clf.coef_.shape[0]
+        class_row = pred_class if n_coef_rows > 1 else 0
+        text_coef = np.asarray(self.clf.coef_[class_row][:n_text_features], dtype=np.float64)
+
+        background = sp.csr_matrix((1, n_text_features), dtype=np.float64)
+        explainer = shap.LinearExplainer((text_coef, 0.0), background)
+        shap_values = np.asarray(explainer.shap_values(X_text)).reshape(-1)
+
+        top_idx = np.argsort(np.abs(shap_values))[-n:][::-1]
+        return [(feature_names[i], float(shap_values[i])) for i in top_idx if shap_values[i] != 0]
 
     def save(self):
         MODEL_DIR.mkdir(exist_ok=True)

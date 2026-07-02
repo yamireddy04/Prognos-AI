@@ -34,6 +34,7 @@ export default function TrainPage() {
   const [status, setStatus] = useState<ModelStatus | null>(null);
   const [training, setTraining] = useState(false);
   const [nSamples, setNSamples] = useState(1200);
+  const [forceRegenerate, setForceRegenerate] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [polling, setPolling] = useState(false);
@@ -62,7 +63,7 @@ export default function TrainPage() {
     setMessage('');
     setError('');
     try {
-      await api.train({ n_samples: nSamples });
+      await api.train({ n_samples: nSamples, force_regenerate: forceRegenerate });
       setMessage('Training started in background. This page auto-updates every 3 seconds.');
       setPolling(true);
     } catch (e: any) {
@@ -193,8 +194,21 @@ export default function TrainPage() {
                   </div>
                 </div>
 
+                <div className="mb-5 flex items-center gap-2">
+                  <input
+                    id="force-regenerate"
+                    type="checkbox"
+                    checked={forceRegenerate}
+                    onChange={e => setForceRegenerate(e.target.checked)}
+                    style={{ accentColor: '#1a56db' }}
+                  />
+                  <label htmlFor="force-regenerate" style={{ color: '#374151', fontSize: 13 }}>
+                    Regenerate dataset even if a cached one exists
+                  </label>
+                </div>
+
                 <p style={{ color: '#6b7280', fontSize: 13, lineHeight: 1.6, marginBottom: 18 }}>
-                  Generates realistic synthetic clinical notes across 5 specialties, then trains baseline (TF-IDF + Logistic Regression) and hybrid (text + vitals fusion) models for all 3 prediction tasks.
+                  Generates realistic synthetic clinical notes across 5 specialties, then trains baseline (TF-IDF + Logistic Regression) and hybrid (text + vitals fusion) models for all 3 prediction tasks. If a dataset already exists with a different sample count, it will be regenerated automatically. Use the checkbox to force regeneration even when the count matches.
                 </p>
 
                 <button

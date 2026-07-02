@@ -11,6 +11,7 @@ export interface TabularFeatures {
 
 export interface PredictRequest {
   note: string; task: Task; model_type: ModelType; tabular?: TabularFeatures;
+  explain_method?: 'tfidf' | 'shap';
 }
 
 export interface TokenSpan {
@@ -53,7 +54,7 @@ export const api = {
     request<PredictionResponse>('/predict', { method: 'POST', body: JSON.stringify(body) }),
   explain: (body: { note: string; task: Task; model_type: ModelType }) =>
     request('/explain', { method: 'POST', body: JSON.stringify(body) }),
-  train: (body: { tasks?: string[]; n_samples?: number }) =>
+  train: (body: { tasks?: string[]; n_samples?: number; force_regenerate?: boolean }) =>
     request('/train', { method: 'POST', body: JSON.stringify(body) }),
   health: () => request<{ status: string; model_status: ModelStatus }>('/health'),
   sampleNote: (specialty?: string) =>

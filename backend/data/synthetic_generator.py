@@ -1,3 +1,4 @@
+import math
 import random
 import numpy as np
 import pandas as pd
@@ -18,6 +19,7 @@ CARDIOLOGY_TEMPLATES = [
 NEUROLOGY_TEMPLATES = [
     "Patient is a {age}-year-old {gender} presenting with {neuro_sx} of {duration} duration. "
     "PMH significant for {neuro_hx}. "
+    "Vitals on admission: BP {bp}, HR {hr} bpm, RR {rr}, SpO2 {spo2}%. "
     "Neurological exam: {neuro_exam}. "
     "MRI brain {mri}. CT head {ct}. LP {lp}. "
     "EEG {eeg}. "
@@ -27,6 +29,7 @@ NEUROLOGY_TEMPLATES = [
 
 ORTHOPEDICS_TEMPLATES = [
     "Patient is a {age}-year-old {gender} admitted after {ortho_event}. "
+    "Vitals on admission: BP {bp}, HR {hr} bpm, RR {rr}, SpO2 {spo2}%. "
     "Imaging revealed {ortho_imaging}. "
     "Orthopedic surgery performed {procedure} without complications. "
     "Pain management with {pain_meds}. PT/OT consulted. "
@@ -36,6 +39,7 @@ ORTHOPEDICS_TEMPLATES = [
 
 ONCOLOGY_TEMPLATES = [
     "Patient is a {age}-year-old {gender} with {cancer_type} cancer, stage {stage}, presenting for {onco_reason}. "
+    "Vitals on admission: BP {bp}, HR {hr} bpm, RR {rr}, SpO2 {spo2}%, T {temp}F. "
     "Performance status ECOG {ecog}. "
     "Labs: WBC {wbc}, Hgb {hgb}, Plt {plt}. LFTs {lfts}. Creatinine {cr}. "
     "Imaging {onco_imaging}. "
@@ -46,7 +50,7 @@ ONCOLOGY_TEMPLATES = [
 GENERAL_TEMPLATES = [
     "Patient is a {age}-year-old {gender} presenting with {general_sx}. "
     "PMH: {pmh}. Medications: {meds_list}. Allergies: {allergies}. "
-    "Vitals: T {temp}F, BP {bp}, HR {hr}, RR {rr}, SpO2 {spo2}%. "
+    "Vitals: T {temp}F, BP {bp}, HR {hr} bpm, RR {rr}, SpO2 {spo2}%. "
     "Physical exam: {exam_findings}. "
     "Labs notable for {labs}. "
     "Assessment: {assessment}. "
@@ -112,6 +116,8 @@ FILLERS = {
     "condition": lambda: random.choice(["stable", "improved", "guarded"]),
 }
 
+VITALS_FILLER_KEYS = {"age", "bp", "hr", "rr", "spo2", "temp"}
+
 SPECIALTY_MAP = {
     "Cardiology": CARDIOLOGY_TEMPLATES,
     "Neurology": NEUROLOGY_TEMPLATES,
@@ -136,31 +142,158 @@ READMISSION_BASE = {
     "General Medicine": 0.22,
 }
 
+SEVERITY_WEIGHTS = {
+    "tachycardia": 1.0,
+    "hypotension": 1.2,
+    "hypoxia": 1.4,
+    "tachypnea": 0.8,
+    "fever": 0.6,
+    "comorbidities": 0.35,
+    "prior_admissions": 0.45,
+}
 
-def _fill_template(template: str) -> str:
+
+def generate_vitals() -> dict:
+    hr = random.randint(50, 130)
+    sbp = random.randint(85, 190)
+    dbp = random.randint(50, 115)
+    rr = random.randint(12, 32)
+    spo2 = random.randint(87, 100)
+    temp = round(random.uniform(97.0, 104.0), 1)
+    age = random.randint(18, 92)
+    gender = random.choice([0, 1])
+    n_comorbidities = random.randint(0, 6)
+    n_meds = random.randint(1, 12)
+    prior_admissions = random.randint(0, 5)
+
+    return {
+        "age": age,
+        "gender": gender,
+        "hr": hr,
+        "sbp": sbp,
+        "dbp": dbp,
+        "rr": rr,
+        "spo2": spo2,
+        "temp": temp,
+        "n_comorbidities": n_comorbidities,
+        "n_meds": n_meds,
+        "prior_admissions": prior_admissions,
+    }
+
+
+def _vitals_filler_value(key: str, vitals: dict) -> str:
+    if key == "age":
+        return str(vitals["age"])
+    if key == "bp":
+        return f"{vitals['sbp']}/{vitals['dbp']}"
+    if key == "hr":
+        return str(vitals["hr"])
+    if key == "rr":
+        return str(vitals["rr"])
+    if key == "spo2":
+        return str(vitals["spo2"])
+    if key == "temp":
+        return f"{vitals['temp']:.1f}"
+    raise KeyError(f"Unknown vitals filler key: {key}")
+
+
+def _fill_template(template: str, vitals: dict) -> str:
     result = template
     for key, fn in FILLERS.items():
         placeholder = "{" + key + "}"
         while placeholder in result:
-            result = result.replace(placeholder, fn(), 1)
+            if key in VITALS_FILLER_KEYS:
+                value = _vitals_filler_value(key, vitals)
+            elif key == "gender":
+                value = "male" if vitals["gender"] == 0 else "female"
+            else:
+                value = fn()
+            result = result.replace(placeholder, value, 1)
     return result
 
 
-def generate_note(specialty: str) -> str:
+def generate_note(specialty: str, vitals: dict) -> str:
     template = random.choice(SPECIALTY_MAP[specialty])
-    return _fill_template(template)
+    return _fill_template(template, vitals)
 
 
-def assign_los_band(specialty: str) -> int:
-    weights = LOS_WEIGHTS[specialty]
-    return random.choices([0, 1, 2], weights=weights)[0]
+def compute_severity_score(vitals: dict, n_comorbidities: int, prior_admissions: int) -> float:
+    hr = vitals.get("hr", 80)
+    sbp = vitals.get("sbp", 120)
+    spo2 = vitals.get("spo2", 98)
+    rr = vitals.get("rr", 16)
+    temp = vitals.get("temp", 98.6)
+
+    n_comorbidities = max(0, min(n_comorbidities, 20))
+    prior_admissions = max(0, min(prior_admissions, 20))
+
+    tachycardia = max(0.0, (hr - 100) / 30.0) if hr > 100 else 0.0
+    hypotension = max(0.0, (90 - sbp) / 20.0) if sbp < 90 else 0.0
+    hypoxia = max(0.0, (92 - spo2) / 10.0) if spo2 < 92 else 0.0
+    tachypnea = max(0.0, (rr - 22) / 10.0) if rr > 22 else 0.0
+    fever = max(0.0, (temp - 100.4) / 4.0) if temp > 100.4 else 0.0
+
+    tachycardia = min(tachycardia, 1.0)
+    hypotension = min(hypotension, 1.0)
+    hypoxia = min(hypoxia, 1.0)
+    tachypnea = min(tachypnea, 1.0)
+    fever = min(fever, 1.0)
+
+    comorbidity_component = min(n_comorbidities / 6.0, 1.0)
+    prior_admission_component = min(prior_admissions / 5.0, 1.0)
+
+    raw_score = (
+        SEVERITY_WEIGHTS["tachycardia"] * tachycardia
+        + SEVERITY_WEIGHTS["hypotension"] * hypotension
+        + SEVERITY_WEIGHTS["hypoxia"] * hypoxia
+        + SEVERITY_WEIGHTS["tachypnea"] * tachypnea
+        + SEVERITY_WEIGHTS["fever"] * fever
+        + SEVERITY_WEIGHTS["comorbidities"] * comorbidity_component
+        + SEVERITY_WEIGHTS["prior_admissions"] * prior_admission_component
+    )
+
+    max_possible = sum(SEVERITY_WEIGHTS.values())
+    normalized = raw_score / max_possible if max_possible > 0 else 0.0
+
+    stretched = normalized / 0.55
+    try:
+        severity_score = 1.0 / (1.0 + math.exp(-6.0 * (stretched - 0.5)))
+    except OverflowError:
+        severity_score = 0.0 if stretched < 0.5 else 1.0
+
+    return max(0.0, min(severity_score, 1.0))
 
 
-def assign_readmission(specialty: str, los_band: int) -> int:
+def assign_los_band(specialty: str, severity_score: float) -> int:
+    prior_weights = LOS_WEIGHTS[specialty]
+    severity_score = max(0.0, min(severity_score, 1.0))
+
+    short_shift = severity_score * prior_weights[0] * 0.9
+    mid_shift = severity_score * prior_weights[1] * 0.6
+
+    adjusted = [
+        max(prior_weights[0] - short_shift, 0.02),
+        max(prior_weights[1] - mid_shift, 0.02),
+        prior_weights[2] + short_shift + mid_shift,
+    ]
+
+    total = sum(adjusted)
+    normalized_weights = [w / total for w in adjusted]
+    return random.choices([0, 1, 2], weights=normalized_weights)[0]
+
+
+def assign_readmission(specialty: str, los_band: int, severity_score: float) -> int:
     base = READMISSION_BASE[specialty]
+    severity_score = max(0.0, min(severity_score, 1.0))
+
+    high_risk_ceiling = 0.85
+    blended = base * (1.0 - severity_score) + high_risk_ceiling * severity_score
+    blended = min(blended, 0.95)
+
     if los_band == 2:
-        base = min(base + 0.15, 0.75)
-    return int(random.random() < base)
+        blended = min(blended + 0.15, 0.95)
+
+    return int(random.random() < blended)
 
 
 def generate_dataset(n_samples: int = 1200) -> pd.DataFrame:
@@ -170,20 +303,14 @@ def generate_dataset(n_samples: int = 1200) -> pd.DataFrame:
 
     for _ in range(n_samples):
         specialty = random.choice(specialties)
-        note = generate_note(specialty)
-        age = random.randint(18, 92)
-        gender = random.choice([0, 1])
-        los_band = assign_los_band(specialty)
-        readmission = assign_readmission(specialty, los_band)
-        hr = random.randint(50, 130)
-        sbp = random.randint(85, 190)
-        dbp = random.randint(50, 115)
-        rr = random.randint(12, 32)
-        spo2 = random.randint(87, 100)
-        temp = round(random.uniform(97.0, 104.0), 1)
-        n_comorbidities = random.randint(0, 6)
-        n_meds = random.randint(1, 12)
-        prior_admissions = random.randint(0, 5)
+        vitals = generate_vitals()
+        note = generate_note(specialty, vitals)
+
+        severity_score = compute_severity_score(
+            vitals, vitals["n_comorbidities"], vitals["prior_admissions"]
+        )
+        los_band = assign_los_band(specialty, severity_score)
+        readmission = assign_readmission(specialty, los_band, severity_score)
 
         records.append({
             "note": note,
@@ -191,17 +318,17 @@ def generate_dataset(n_samples: int = 1200) -> pd.DataFrame:
             "specialty_id": specialty_indices[specialty],
             "readmission_30d": readmission,
             "los_band": los_band,
-            "age": age,
-            "gender": gender,
-            "hr": hr,
-            "sbp": sbp,
-            "dbp": dbp,
-            "rr": rr,
-            "spo2": spo2,
-            "temp": temp,
-            "n_comorbidities": n_comorbidities,
-            "n_meds": n_meds,
-            "prior_admissions": prior_admissions,
+            "age": vitals["age"],
+            "gender": vitals["gender"],
+            "hr": vitals["hr"],
+            "sbp": vitals["sbp"],
+            "dbp": vitals["dbp"],
+            "rr": vitals["rr"],
+            "spo2": vitals["spo2"],
+            "temp": vitals["temp"],
+            "n_comorbidities": vitals["n_comorbidities"],
+            "n_meds": vitals["n_meds"],
+            "prior_admissions": vitals["prior_admissions"],
         })
 
     return pd.DataFrame(records)

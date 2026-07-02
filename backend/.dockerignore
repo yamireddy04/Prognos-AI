@@ -1,0 +1,13 @@
+.venv
+.venv-clean
+__pycache__
+**/__pycache__
+saved_models/*.pkl
+data/clinical_notes.csv
+.env
+tests/
+requirements-dev.txt
+.pytest_cache
+.git
+.gitignore
+*.pyc

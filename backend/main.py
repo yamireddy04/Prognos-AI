@@ -1,15 +1,20 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
+import logging
 import traceback
 import threading
 import glob
 import os
 
-from config import TASK_LABELS, TASKS
+from config import TASK_LABELS, TASKS, settings, warn_if_groq_key_missing
 from models import get_baseline, get_groq_model, get_hybrid, model_status
 from utils.explainability import build_explanation_payload, extract_tfidf_highlights
+
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(
     title="Clinical NLP API",
@@ -19,29 +24,44 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+
 class PredictRequest(BaseModel):
-    note: str = Field(..., min_length=20)
+    note: str = Field(..., min_length=20, max_length=8000)
     task: Literal["readmission", "los_band", "specialty"] = "readmission"
     model_type: Literal["baseline", "groq", "hybrid"] = "baseline"
     tabular: Optional[dict] = None
+    explain_method: Literal["tfidf", "shap"] = "tfidf"
 
 
 class ExplainRequest(BaseModel):
-    note: str
+    note: str = Field(..., max_length=8000)
     task: Literal["readmission", "los_band", "specialty"] = "readmission"
     model_type: Literal["baseline", "groq", "hybrid"] = "baseline"
+    explain_method: Literal["tfidf", "shap"] = "tfidf"
 
 
 class TrainRequest(BaseModel):
     tasks: Optional[List[str]] = None
     n_samples: int = Field(default=1200, ge=200, le=5000)
+    force_regenerate: bool = False
 
 
 class PredictionResponse(BaseModel):
@@ -100,6 +120,7 @@ def _auto_train():
 
 @app.on_event("startup")
 async def startup_event():
+    warn_if_groq_key_missing()
     thread = threading.Thread(target=_auto_train, daemon=True)
     thread.start()
 
@@ -125,7 +146,10 @@ async def predict(req: PredictRequest):
             if not model.is_trained:
                 raise HTTPException(status_code=400, detail="Baseline model is still training. Please wait ~60 seconds and try again.")
             pred, proba = model.predict(req.note)
-            top_features = model.get_top_features(req.note, n=15)
+            if req.explain_method == "shap":
+                top_features = model.get_shap_values(req.note, n=15)
+            else:
+                top_features = model.get_top_features(req.note, n=15)
             explanation = build_explanation_payload(req.note, "baseline", top_features=top_features)
             metadata = None
 
@@ -142,7 +166,10 @@ async def predict(req: PredictRequest):
             if not model.is_trained:
                 raise HTTPException(status_code=400, detail="Hybrid model is still training. Please wait ~60 seconds and try again.")
             pred, proba = model.predict(req.note, tabular=req.tabular)
-            top_features = model.get_feature_importances(req.note)
+            if req.explain_method == "shap":
+                top_features = model.get_shap_values(req.note, tabular=req.tabular, n=12)
+            else:
+                top_features = model.get_feature_importances(req.note, tabular=req.tabular)
             explanation = build_explanation_payload(req.note, "hybrid", top_features=top_features)
             metadata = None
 
@@ -183,7 +210,10 @@ async def explain(req: ExplainRequest):
             model = get_baseline(req.task)
             if not model.is_trained:
                 raise HTTPException(status_code=400, detail="Model not trained.")
-            top_features = model.get_top_features(req.note, n=20)
+            if req.explain_method == "shap":
+                top_features = model.get_shap_values(req.note, n=20)
+            else:
+                top_features = model.get_top_features(req.note, n=20)
             spans = extract_tfidf_highlights(req.note, top_features)
             return {"task": req.task, "model_type": req.model_type, "token_spans": spans,
                     "top_features": [{"feature": f, "score": s} for f, s in top_features]}
@@ -192,7 +222,10 @@ async def explain(req: ExplainRequest):
             model = get_hybrid(req.task)
             if not model.is_trained:
                 raise HTTPException(status_code=400, detail="Model not trained.")
-            top_features = model.get_feature_importances(req.note)
+            if req.explain_method == "shap":
+                top_features = model.get_shap_values(req.note, n=20)
+            else:
+                top_features = model.get_feature_importances(req.note)
             spans = extract_tfidf_highlights(req.note, top_features)
             return {"task": req.task, "model_type": req.model_type, "token_spans": spans,
                     "top_features": [{"feature": f, "score": s} for f, s in top_features]}
@@ -211,7 +244,7 @@ async def train_models(req: TrainRequest, background_tasks: BackgroundTasks):
 
     def _run():
         try:
-            train_all_models(tasks=req.tasks, n_samples=req.n_samples)
+            train_all_models(tasks=req.tasks, n_samples=req.n_samples, force_regenerate=req.force_regenerate)
             model_registry._registry.clear()
         except Exception:
             traceback.print_exc()
@@ -240,8 +273,9 @@ def get_tasks():
 
 @app.get("/sample-note")
 def get_sample_note(specialty: str = "Cardiology"):
-    from data.synthetic_generator import generate_note, SPECIALTY_MAP
+    from data.synthetic_generator import generate_note, generate_vitals, SPECIALTY_MAP
     if specialty not in SPECIALTY_MAP:
         specialty = "Cardiology"
-    note = generate_note(specialty)
+    vitals = generate_vitals()
+    note = generate_note(specialty, vitals)
     return {"note": note, "specialty": specialty}

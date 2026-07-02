@@ -1,5 +1,7 @@
 import numpy as np
 import joblib
+import shap
+import scipy.sparse as sp
 from pathlib import Path
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
@@ -35,7 +37,6 @@ class BaselineModel:
             max_iter=1000,
             class_weight="balanced",
             solver="lbfgs",
-            multi_class="auto",
         )
         return Pipeline([("tfidf", vectorizer), ("clf", clf)])
 
@@ -79,6 +80,29 @@ class BaselineModel:
         scores = tfidf_scores * coefs
         top_idx = np.argsort(np.abs(scores))[-n:][::-1]
         return [(feature_names[i], float(scores[i])) for i in top_idx if tfidf_scores[i] > 0]
+
+    def get_shap_values(self, text: str, n: int = 15) -> List[Tuple[str, float]]:
+        if self.pipeline is None:
+            self.load()
+        processed = preprocess_batch([text], lemmatize=True)
+        tfidf = self.pipeline.named_steps["tfidf"]
+        clf = self.pipeline.named_steps["clf"]
+        vec = tfidf.transform(processed).astype(np.float64)
+        feature_names = np.array(tfidf.get_feature_names_out())
+
+        pred_class = int(self.pipeline.predict(processed)[0])
+        n_coef_rows = clf.coef_.shape[0]
+        class_row = pred_class if n_coef_rows > 1 else 0
+        coef_row = np.asarray(clf.coef_[class_row], dtype=np.float64).ravel()
+        intercept_arr = np.atleast_1d(clf.intercept_).astype(np.float64)
+        intercept_val = float(intercept_arr[class_row]) if intercept_arr.shape[0] > 1 else float(intercept_arr[0])
+
+        background = sp.csr_matrix((1, coef_row.shape[0]), dtype=np.float64)
+        explainer = shap.LinearExplainer((coef_row, intercept_val), background)
+        shap_values = np.asarray(explainer.shap_values(vec)).reshape(-1)
+
+        top_idx = np.argsort(np.abs(shap_values))[-n:][::-1]
+        return [(feature_names[i], float(shap_values[i])) for i in top_idx if shap_values[i] != 0]
 
     def save(self):
         MODEL_DIR.mkdir(exist_ok=True)
