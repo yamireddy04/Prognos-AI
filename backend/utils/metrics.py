@@ -3,7 +3,7 @@ from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     confusion_matrix, roc_auc_score
 )
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 
 def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_proba: Optional[np.ndarray] = None,
@@ -11,7 +11,7 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_proba: Optional[np
     is_binary = len(np.unique(y_true)) == 2
     avg = "binary" if is_binary else "weighted"
 
-    metrics = {
+    metrics: Dict[str, Any] = {
         "accuracy": round(float(accuracy_score(y_true, y_pred)), 4),
         "precision": round(float(precision_score(y_true, y_pred, average=avg, zero_division=0)), 4),
         "recall": round(float(recall_score(y_true, y_pred, average=avg, zero_division=0)), 4),

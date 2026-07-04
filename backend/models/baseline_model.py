@@ -2,7 +2,6 @@ import numpy as np
 import joblib
 import shap
 import scipy.sparse as sp
-from pathlib import Path
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
@@ -57,6 +56,7 @@ class BaselineModel:
     def predict(self, text: str) -> Tuple[int, np.ndarray]:
         if self.pipeline is None:
             self.load()
+        assert self.pipeline is not None
         processed = preprocess_batch([text], lemmatize=True)
         pred = self.pipeline.predict(processed)[0]
         proba = self.pipeline.predict_proba(processed)[0]
@@ -65,6 +65,7 @@ class BaselineModel:
     def get_top_features(self, text: str, n: int = 15) -> List[Tuple[str, float]]:
         if self.pipeline is None:
             self.load()
+        assert self.pipeline is not None
         processed = preprocess_batch([text], lemmatize=True)
         tfidf = self.pipeline.named_steps["tfidf"]
         clf = self.pipeline.named_steps["clf"]
@@ -84,6 +85,7 @@ class BaselineModel:
     def get_shap_values(self, text: str, n: int = 15) -> List[Tuple[str, float]]:
         if self.pipeline is None:
             self.load()
+        assert self.pipeline is not None
         processed = preprocess_batch([text], lemmatize=True)
         tfidf = self.pipeline.named_steps["tfidf"]
         clf = self.pipeline.named_steps["clf"]
@@ -112,7 +114,7 @@ class BaselineModel:
         if self._model_path.exists():
             self.pipeline = joblib.load(self._model_path)
         else:
-            raise FileNotFoundError(f"No saved baseline model. Run /train first.")
+            raise FileNotFoundError("No saved baseline model. Run /train first.")
 
     @property
     def is_trained(self) -> bool:

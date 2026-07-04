@@ -57,6 +57,7 @@ class HybridModel:
     def predict(self, text: str, tabular: Optional[dict] = None) -> Tuple[int, List[float]]:
         if self.clf is None:
             self.load()
+        assert self.clf is not None and self.tfidf is not None and self.scaler is not None
         processed = preprocess_batch([text], lemmatize=True)
         X_text = self.tfidf.transform(processed)
 
@@ -76,6 +77,7 @@ class HybridModel:
             self.load()
         if self.scaler is None or self.tfidf is None:
             raise FileNotFoundError("No saved hybrid model. Run /train first.")
+        assert self.clf is not None
 
         processed = preprocess_batch([text], lemmatize=True)
         feature_names = list(self.tfidf.get_feature_names_out())
@@ -107,6 +109,7 @@ class HybridModel:
             self.load()
         if self.scaler is None or self.tfidf is None:
             raise FileNotFoundError("No saved hybrid model. Run /train first.")
+        assert self.clf is not None
 
         processed = preprocess_batch([text], lemmatize=True)
         feature_names = np.array(self.tfidf.get_feature_names_out())

@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 from pathlib import Path
 import sys
 
@@ -53,12 +52,12 @@ def train_all_models(tasks=None, n_samples: int = 1200, force_regenerate: bool =
         texts = df["note"].tolist()
         labels = df[label_col].values
 
-        print(f"\n[Baseline] Training TF-IDF + Logistic Regression...")
+        print("\n[Baseline] Training TF-IDF + Logistic Regression...")
         baseline = BaselineModel(task, classifier="logreg")
         baseline_metrics = baseline.train(texts, labels)
         print(f"  Accuracy: {baseline_metrics['accuracy']:.4f} | F1: {baseline_metrics['f1']:.4f}")
 
-        print(f"\n[Hybrid] Training TF-IDF + Tabular features...")
+        print("\n[Hybrid] Training TF-IDF + Tabular features...")
         hybrid = HybridModel(task)
         tabular_cols = ["age", "gender", "hr", "sbp", "dbp", "rr", "spo2", "temp",
                         "n_comorbidities", "n_meds", "prior_admissions"]

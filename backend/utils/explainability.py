@@ -1,11 +1,10 @@
-import numpy as np
 import re
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 
 
 def highlight_text_spans(text: str, important_phrases: List[dict]) -> List[dict]:
     tokens = text.split()
-    token_scores = {}
+    token_scores: Dict[int, float] = {}
 
     for phrase_info in important_phrases:
         phrase = phrase_info.get("phrase", "")

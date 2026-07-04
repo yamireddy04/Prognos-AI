@@ -72,26 +72,27 @@ class GroqAdvancedModel:
         n_classes = len(self._task_config["labels"])
         truncated_text = text[:3000] if len(text) > 3000 else text
 
+        messages = [
+            {"role": "system", "content": self._task_config["system"]},
+            {"role": "user", "content": f"Clinical Note:\n\n{truncated_text}"},
+        ]
         response = client.chat.completions.create(
             model=GROQ_MODEL,
-            messages=[
-                {"role": "system", "content": self._task_config["system"]},
-                {"role": "user", "content": f"Clinical Note:\n\n{truncated_text}"},
-            ],
+            messages=messages,  # type: ignore[arg-type]
             temperature=0.1,
             max_tokens=512,
         )
 
-        raw = response.choices[0].message.content
+        raw = response.choices[0].message.content or ""
         parsed = self._parse_response(raw)
 
         prediction = int(parsed.get("prediction", 0))
         confidence = float(parsed.get("confidence", 0.5))
         confidence = max(0.0, min(1.0, confidence))
 
-        proba = np.full(n_classes, (1 - confidence) / max(n_classes - 1, 1))
-        proba[prediction] = confidence
-        proba = (proba / proba.sum()).tolist()
+        proba_arr = np.full(n_classes, (1 - confidence) / max(n_classes - 1, 1))
+        proba_arr[prediction] = confidence
+        proba: List[float] = (proba_arr / proba_arr.sum()).tolist()
 
         metadata = {
             "reasoning": parsed.get("reasoning", ""),
@@ -114,17 +115,18 @@ class GroqAdvancedModel:
             '"overall_summary": "one sentence summary"}'
         )
 
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": f"Analyze this clinical note for the task '{self.task}':\n\n{truncated_text}"},
+        ]
         response = client.chat.completions.create(
             model=GROQ_MODEL,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": f"Analyze this clinical note for the task '{self.task}':\n\n{truncated_text}"},
-            ],
+            messages=messages,  # type: ignore[arg-type]
             temperature=0.1,
             max_tokens=800,
         )
 
-        raw = response.choices[0].message.content
+        raw = response.choices[0].message.content or ""
         parsed = self._parse_response(raw)
         return parsed
 

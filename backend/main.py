@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from pydantic import BaseModel, Field
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Any
 import logging
 import traceback
 import threading
@@ -77,7 +77,6 @@ class PredictionResponse(BaseModel):
 
 
 def _check_mismatch() -> bool:
-    """Return True if baseline and hybrid pkl counts differ — sign of mismatch."""
     from config import MODEL_DIR
     baselines = glob.glob(str(MODEL_DIR / "baseline_*.pkl"))
     hybrids = glob.glob(str(MODEL_DIR / "hybrid_*.pkl"))
@@ -105,12 +104,10 @@ def _auto_train():
             os.remove(pkl)
             print(f"  Removed: {pkl}")
 
-        # Clear the in-memory model registry so stale objects are not reused
         model_registry._registry.clear()
 
         train_all_models()
 
-        # Clear registry again so next predict call loads the fresh models
         model_registry._registry.clear()
         print("Auto-training complete. Registry cleared.")
 
@@ -139,6 +136,7 @@ def health():
 async def predict(req: PredictRequest):
     task = req.task
     labels = TASK_LABELS.get(task, [])
+    model: Any = None
 
     try:
         if req.model_type == "baseline":
@@ -200,6 +198,7 @@ async def predict(req: PredictRequest):
 
 @app.post("/explain")
 async def explain(req: ExplainRequest):
+    model: Any = None
     try:
         if req.model_type == "groq":
             model = get_groq_model(req.task)
