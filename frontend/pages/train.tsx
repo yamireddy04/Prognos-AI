@@ -78,15 +78,15 @@ export default function TrainPage() {
   return (
     <>
       <Head><title>Train Models · Prognos AI</title></Head>
-      <div style={{ background: '#f8f9fb', minHeight: '100vh' }}>
+      <div className="bg-surface min-h-screen">
         <Navbar />
 
         <div className="page-container py-6">
           <div className="mb-6">
-            <h1 style={{ color: '#111827', fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>
+            <h1 className="page-title">
               Model Training
             </h1>
-            <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>
+            <p className="page-subtitle">
               Train the TF-IDF baseline and hybrid models on synthetic clinical data
             </p>
           </div>
@@ -94,28 +94,26 @@ export default function TrainPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div className="lg:col-span-2 space-y-5">
 
-              {/* Alerts */}
               {error && (
-                <div className="rounded-xl px-4 py-3.5 flex items-start gap-3" style={{ background: '#fff1f2', border: '1px solid #fecdd3' }}>
-                  <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#e11d48' }} />
-                  <p style={{ color: '#9f1239', fontSize: 13 }}>{error}</p>
+                <div className="rounded-xl px-4 py-3.5 flex items-start gap-3 bg-danger-pale border border-rose-200" role="alert">
+                  <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-danger" />
+                  <p className="text-rose-800 text-[13px]">{error}</p>
                 </div>
               )}
               {message && (
-                <div className="rounded-xl px-4 py-3.5 flex items-start gap-3" style={{ background: '#f0fdf4', border: '1px solid #a7f3d0' }}>
-                  <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#059669' }} />
-                  <p style={{ color: '#065f46', fontSize: 13 }}>{message}</p>
+                <div className="rounded-xl px-4 py-3.5 flex items-start gap-3 bg-success-pale border border-emerald-200" role="status">
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-success" />
+                  <p className="text-emerald-800 text-[13px]">{message}</p>
                 </div>
               )}
 
-              {/* Model status */}
               <div className="card p-5">
                 <div className="flex items-center justify-between mb-5">
                   <div>
                     <p className="section-label mb-1">Current Status</p>
-                    <p style={{ color: '#111827', fontWeight: 700, fontSize: 16 }}>Model Availability</p>
+                    <p className="card-heading">Model Availability</p>
                   </div>
-                  <button onClick={fetchStatus} className="btn-secondary flex items-center gap-1.5" style={{ fontSize: 12, padding: '6px 12px' }}>
+                  <button onClick={fetchStatus} className="btn-secondary flex items-center gap-1.5 text-xs px-3 py-1.5">
                     <RefreshCw className="w-3.5 h-3.5" />
                     Refresh
                   </button>
@@ -124,19 +122,19 @@ export default function TrainPage() {
                 {status ? (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {Object.entries(status).map(([task, s]) => (
-                      <div key={task} className="rounded-xl p-4" style={{ background: '#f8f9fb', border: '1px solid #e2e6ec' }}>
-                        <p style={{ color: '#374151', fontWeight: 600, fontSize: 13, marginBottom: 10, textTransform: 'capitalize' }}>
+                      <div key={task} className="rounded-xl p-4 bg-surface border border-border">
+                        <p className="text-gray-700 font-semibold text-[13px] mb-2.5 capitalize">
                           {TASK_LABELS[task] || task}
                         </p>
                         <div className="space-y-2">
                           {Object.entries(s).map(([model, ready]) => (
                             <div key={model} className="flex items-center justify-between">
-                              <span style={{ color: '#6b7280', fontSize: 12.5, textTransform: 'capitalize' }}>{model}</span>
-                              <div className="flex items-center gap-1.5">
+                              <span className="text-muted text-[12.5px] capitalize">{model}</span>
+                              <div className="status-badge" role="status" aria-label={ready ? `${model} model is ready` : `${model} model is untrained`}>
                                 {ready
-                                  ? <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#059669' }} />
-                                  : <Circle className="w-3.5 h-3.5" style={{ color: '#d1d5db' }} />}
-                                <span style={{ fontSize: 12, color: ready ? '#059669' : '#9aa3b0', fontWeight: 500 }}>
+                                  ? <CheckCircle2 className="w-3.5 h-3.5 text-success" aria-hidden="true" />
+                                  : <Circle className="w-3.5 h-3.5 text-gray-300" aria-hidden="true" />}
+                                <span className={ready ? 'status-text-ready' : 'status-text-pending'}>
                                   {ready ? 'Ready' : 'Untrained'}
                                 </span>
                               </div>
@@ -147,50 +145,49 @@ export default function TrainPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 py-4" style={{ color: '#9aa3b0' }}>
+                  <div className="flex items-center gap-2 py-4 text-clinical-400">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span style={{ fontSize: 13 }}>Checking status...</span>
+                    <span className="text-[13px]">Checking status...</span>
                   </div>
                 )}
 
                 {allTrained && (
-                  <div className="mt-4 flex items-center justify-between p-4 rounded-xl" style={{ background: '#f0fdf4', border: '1px solid #a7f3d0' }}>
+                  <div className="mt-4 flex items-center justify-between p-4 rounded-xl bg-success-pale border border-emerald-200">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" style={{ color: '#059669' }} />
-                      <span style={{ color: '#065f46', fontSize: 13, fontWeight: 600 }}>All models trained and ready</span>
+                      <CheckCircle2 className="w-4 h-4 text-success" />
+                      <span className="text-emerald-800 text-[13px] font-semibold">All models trained and ready</span>
                     </div>
-                    <button onClick={() => router.push('/predict')} className="btn-primary" style={{ fontSize: 12, padding: '6px 14px' }}>
+                    <button onClick={() => router.push('/predict')} className="btn-primary text-xs px-3.5 py-1.5">
                       Go to Predict <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* Training config */}
               <div className="card p-5">
                 <p className="section-label mb-1">Training Configuration</p>
-                <p style={{ color: '#111827', fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Train All Models</p>
+                <p className="card-heading mb-4">Train All Models</p>
 
                 <div className="mb-5">
                   <div className="flex items-center justify-between mb-2">
-                    <label style={{ color: '#374151', fontSize: 13, fontWeight: 600 }}>
+                    <label htmlFor="n-samples-slider" className="text-gray-700 text-[13px] font-semibold">
                       Synthetic samples to generate
                     </label>
-                    <span className="tag tag-blue" style={{ fontSize: 12 }}>{nSamples.toLocaleString()} notes</span>
+                    <span className="tag tag-blue text-xs">{nSamples.toLocaleString()} notes</span>
                   </div>
                   <input
+                    id="n-samples-slider"
                     type="range"
                     min={200}
                     max={5000}
                     step={100}
                     value={nSamples}
                     onChange={e => setNSamples(Number(e.target.value))}
-                    className="w-full"
-                    style={{ accentColor: '#1a56db' }}
+                    className="w-full accent-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 rounded-lg"
                   />
                   <div className="flex justify-between mt-1.5">
-                    <span style={{ color: '#9aa3b0', fontSize: 11 }}>200 — fast training</span>
-                    <span style={{ color: '#9aa3b0', fontSize: 11 }}>5,000 — better accuracy</span>
+                    <span className="text-clinical-400 text-[11px]">200 — fast training</span>
+                    <span className="text-clinical-400 text-[11px]">5,000 — better accuracy</span>
                   </div>
                 </div>
 
@@ -200,22 +197,21 @@ export default function TrainPage() {
                     type="checkbox"
                     checked={forceRegenerate}
                     onChange={e => setForceRegenerate(e.target.checked)}
-                    style={{ accentColor: '#1a56db' }}
+                    className="accent-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 rounded"
                   />
-                  <label htmlFor="force-regenerate" style={{ color: '#374151', fontSize: 13 }}>
+                  <label htmlFor="force-regenerate" className="text-gray-700 text-[13px]">
                     Regenerate dataset even if a cached one exists
                   </label>
                 </div>
 
-                <p style={{ color: '#6b7280', fontSize: 13, lineHeight: 1.6, marginBottom: 18 }}>
+                <p className="text-muted text-[13px] leading-relaxed mb-4">
                   Generates realistic synthetic clinical notes across 5 specialties, then trains baseline (TF-IDF + Logistic Regression) and hybrid (text + vitals fusion) models for all 3 prediction tasks. If a dataset already exists with a different sample count, it will be regenerated automatically. Use the checkbox to force regeneration even when the count matches.
                 </p>
 
                 <button
                   onClick={handleTrain}
                   disabled={training}
-                  className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ padding: '10px 24px' }}
+                  className="btn-primary px-6 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {training ? (
                     <><Loader2 className="w-4 h-4 animate-spin" />Starting training...</>
@@ -226,28 +222,27 @@ export default function TrainPage() {
               </div>
             </div>
 
-            {/* Right sidebar */}
             <div className="space-y-4">
               <div className="card p-5">
                 <p className="section-label mb-4">What Gets Trained</p>
                 <div className="space-y-4">
                   {MODEL_DESCRIPTIONS.map(m => (
-                    <div key={m.name} className="pb-4" style={{ borderBottom: '1px solid #f0f2f5' }}>
+                    <div key={m.name} className="pb-4 border-b border-clinical-100">
                       <div className="flex items-center justify-between mb-1.5">
-                        <p style={{ color: '#111827', fontWeight: 600, fontSize: 13 }}>{m.name}</p>
-                        <span className="tag tag-gray" style={{ fontSize: 11 }}>{m.time}</span>
+                        <p className="text-ink font-semibold text-[13px]">{m.name}</p>
+                        <span className="tag tag-gray text-[11px]">{m.time}</span>
                       </div>
-                      <p style={{ color: '#6b7280', fontSize: 12, lineHeight: 1.6 }}>{m.detail}</p>
+                      <p className="text-muted text-xs leading-relaxed">{m.detail}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="card p-5" style={{ background: '#eff4ff', border: '1px solid #c3d5fc' }}>
-                <p style={{ color: '#1a56db', fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
-                  💡 Quick Start Tip
+              <div className="card p-5 bg-brand-pale border border-brand-border">
+                <p className="text-brand font-bold text-[13px] mb-1.5">
+                  <span aria-hidden="true">💡</span> Quick Start Tip
                 </p>
-                <p style={{ color: '#3b5bdb', fontSize: 12.5, lineHeight: 1.6 }}>
+                <p className="text-brand-light text-[12.5px] leading-relaxed">
                   The Groq model works immediately without any training. Use Baseline or Hybrid only if you want to compare offline ML models or need faster predictions.
                 </p>
               </div>

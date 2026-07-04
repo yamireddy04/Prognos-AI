@@ -6,7 +6,7 @@ interface Props {
 
 export function HighlightedNote({ spans }: Props) {
   return (
-    <p style={{ fontSize: 12.5, lineHeight: 1.9, color: '#4b5563', fontFamily: 'JetBrains Mono, monospace' }}>
+    <p className="text-[12.5px] leading-[1.9] text-gray-600 font-mono">
       {spans.map((span, i) => {
         if (!span.highlighted) {
           return <span key={i}>{span.token} </span>;

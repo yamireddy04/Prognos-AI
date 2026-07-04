@@ -13,10 +13,16 @@ const OPTIONS: { id: ModelType; label: string }[] = [
 
 export function ModelSelector({ value, onChange }: Props) {
   return (
-    <div className="flex gap-2 flex-wrap">
+    <div className="flex gap-2 flex-wrap" role="radiogroup" aria-label="Model selection">
       {OPTIONS.map(o => (
-        <button key={o.id} onClick={() => onChange(o.id)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${value === o.id ? 'bg-accent-blue text-white border-accent-blue' : 'bg-surface-3 text-text-secondary border-border hover:border-border-strong'}`}>
+        <button
+          key={o.id}
+          type="button"
+          role="radio"
+          aria-checked={value === o.id}
+          onClick={() => onChange(o.id)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${value === o.id ? 'bg-brand text-white border-brand' : 'bg-surface text-muted border-border hover:border-clinical-300'}`}
+        >
           {o.label}
         </button>
       ))}

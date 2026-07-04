@@ -13,19 +13,19 @@ export function Navbar() {
   ];
 
   return (
-    <header style={{ background: 'white', borderBottom: '1px solid #e2e6ec', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }} className="sticky top-0 z-50">
+    <header className="bg-white border-b border-border shadow-sm sticky top-0 z-50">
       <div className="page-container">
         <div className="h-16 flex items-center justify-between">
           <button
             onClick={() => router.push('/')}
-            className="flex items-center gap-2.5 group"
+            className="flex items-center gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 rounded-lg"
           >
-            <div style={{ background: '#1a56db', borderRadius: 10 }} className="w-8 h-8 flex items-center justify-center">
+            <div className="bg-brand rounded-[10px] w-8 h-8 flex items-center justify-center">
               <Activity className="w-4 h-4 text-white" />
             </div>
             <div className="flex flex-col leading-none">
-              <span style={{ color: '#111827', fontWeight: 700, fontSize: 15, letterSpacing: '-0.02em' }}>Prognos AI</span>
-              <span style={{ color: '#9aa3b0', fontSize: 10, fontWeight: 500, letterSpacing: '0.05em' }}>INTELLIGENCE PLATFORM</span>
+              <span className="text-ink font-bold text-[15px] tracking-tight">Prognos AI</span>
+              <span className="text-clinical-400 text-[10px] font-medium tracking-wide">INTELLIGENCE PLATFORM</span>
             </div>
           </button>
 
@@ -34,12 +34,7 @@ export function Navbar() {
               <button
                 key={l.href}
                 onClick={() => router.push(l.href)}
-                style={{
-                  color: router.pathname === l.href ? '#1a56db' : '#4b5563',
-                  background: router.pathname === l.href ? '#eff4ff' : 'transparent',
-                  fontWeight: router.pathname === l.href ? 600 : 500,
-                }}
-                className="px-4 py-2 rounded-lg text-sm transition-all duration-150 hover:bg-gray-50"
+                className={`px-4 py-2 rounded-lg text-sm transition-all duration-150 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${router.pathname === l.href ? 'text-brand bg-brand-pale font-semibold' : 'text-gray-600 font-medium'}`}
               >
                 {l.label}
               </button>
@@ -59,6 +54,8 @@ export function Navbar() {
           <button
             className="md:hidden btn-ghost"
             onClick={() => setMobileOpen(!mobileOpen)}
+            aria-expanded={mobileOpen}
+            aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -66,14 +63,13 @@ export function Navbar() {
       </div>
 
       {mobileOpen && (
-        <div style={{ background: 'white', borderTop: '1px solid #e2e6ec' }} className="md:hidden">
+        <div className="bg-white border-t border-border md:hidden">
           <div className="page-container py-3 space-y-1">
             {links.map(l => (
               <button
                 key={l.href}
                 onClick={() => { router.push(l.href); setMobileOpen(false); }}
-                style={{ color: router.pathname === l.href ? '#1a56db' : '#4b5563', fontWeight: router.pathname === l.href ? 600 : 400 }}
-                className="w-full text-left px-4 py-2.5 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                className={`w-full text-left px-4 py-2.5 rounded-lg text-sm hover:bg-gray-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${router.pathname === l.href ? 'text-brand font-semibold' : 'text-gray-600 font-normal'}`}
               >
                 {l.label}
               </button>

@@ -33,33 +33,31 @@ export function TabularInputs({ value, onChange }: Props) {
 
   return (
     <div className="pt-4">
-      <p style={{ color: '#6b7280', fontSize: 12, marginBottom: 10 }}>Patient Sex</p>
-      <div className="flex gap-2 mb-5">
+      <p className="text-muted text-xs mb-2.5" id="patient-sex-label">Patient Sex</p>
+      <div className="flex gap-2 mb-5" role="radiogroup" aria-labelledby="patient-sex-label">
         {[{ label: 'Male', val: 0 }, { label: 'Female', val: 1 }].map(opt => (
           <button
             key={opt.label}
+            type="button"
+            role="radio"
+            aria-checked={value.gender === opt.val}
             onClick={() => onChange({ ...value, gender: opt.val })}
-            className="px-4 py-2 rounded-lg border text-sm font-medium transition-all duration-150"
-            style={{
-              background: value.gender === opt.val ? '#eff4ff' : 'white',
-              borderColor: value.gender === opt.val ? '#1a56db' : '#e2e6ec',
-              color: value.gender === opt.val ? '#1a56db' : '#6b7280',
-              fontSize: 13,
-            }}
+            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${value.gender === opt.val ? 'bg-brand-pale border-brand text-brand' : 'bg-white border-border text-muted'}`}
           >
             {opt.label}
           </button>
         ))}
       </div>
 
-      <p style={{ color: '#6b7280', fontSize: 12, marginBottom: 10 }}>Vitals & Clinical Data</p>
+      <p className="text-muted text-xs mb-2.5">Vitals & Clinical Data</p>
       <div className="grid grid-cols-2 gap-3">
         {FIELDS.map(f => (
           <div key={f.key}>
-            <label style={{ color: '#374151', fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 4 }}>
+            <label htmlFor={`tabular-${f.key}`} className="text-gray-700 text-xs font-medium block mb-1">
               {f.label}
             </label>
             <input
+              id={`tabular-${f.key}`}
               type="number"
               min={f.min}
               max={f.max}
@@ -67,15 +65,7 @@ export function TabularInputs({ value, onChange }: Props) {
               placeholder={f.placeholder}
               value={value[f.key] ?? ''}
               onChange={e => update(f.key, e.target.value)}
-              className="w-full rounded-lg px-3 py-2 outline-none transition-all duration-150"
-              style={{
-                background: '#f8f9fb',
-                border: '1px solid #e2e6ec',
-                color: '#374151',
-                fontSize: 13,
-              }}
-              onFocus={e => { e.target.style.borderColor = '#1a56db'; e.target.style.background = 'white'; e.target.style.boxShadow = '0 0 0 3px rgba(26,86,219,0.08)'; }}
-              onBlur={e => { e.target.style.borderColor = '#e2e6ec'; e.target.style.background = '#f8f9fb'; e.target.style.boxShadow = 'none'; }}
+              className="w-full rounded-lg px-3 py-2 text-[13px] outline-none transition-all duration-150 bg-surface border border-border text-gray-700 focus:bg-white focus:border-brand focus:ring-2 focus:ring-brand/10 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
             />
           </div>
         ))}
