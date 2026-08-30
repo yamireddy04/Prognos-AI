@@ -3,6 +3,7 @@
 Clinical outcome prediction from discharge notes — a full-stack system that predicts 30-day readmission risk, length-of-stay band, and medical specialty from unstructured clinical text, comparing three model architectures (TF-IDF baseline, hybrid text+vitals fusion, and a prompted LLM) with built-in explainability for every prediction.
 
 **Live Demo:** https://prognos-ai-five.vercel.app
+
 **Repository:** https://github.com/yamini-nlp/Prognos-AI
 
 [![Stack](https://img.shields.io/badge/Stack-FastAPI%20%7C%20Next.js-blue?style=flat-square)](https://github.com/yamini-nlp/Prognos-AI)
